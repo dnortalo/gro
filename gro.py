@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 import random
 
 # ======== Configuration ========
-openai.api_key = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 LONG_LIVED_USER_TOKEN = os.getenv("LONG_LIVED_USER_TOKEN")  # Permanent Page Token
