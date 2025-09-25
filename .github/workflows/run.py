@@ -1,0 +1,39 @@
+name: Daily Reflection
+
+on:
+  schedule:
+    # Telegram kl. 07 lokal tid (06:00 UTC vinter, 05:00 UTC sommer)
+    - cron: '0 6 * * *'
+    # Instagram kl. 09 lokal tid (08:00 UTC vinter, 07:00 UTC sommer)
+    - cron: '0 8 * * *'
+  workflow_dispatch:  # Mulighet for manuell kjøring
+
+jobs:
+  daily_reflection:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pillow openai
+
+      - name: Run reflection script
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          LONG_LIVED_USER_TOKEN: ${{ secrets.LONG_LIVED_USER_TOKEN }}
+          PAGE_ID: ${{ secrets.PAGE_ID }}
+          INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
+          INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+        run: |
+          python Gro.py
