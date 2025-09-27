@@ -9,10 +9,11 @@ import random
 
 # ======== Configuration ========
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-LONG_LIVED_USER_TOKEN = os.getenv("LONG_LIVED_USER_TOKEN")  # Permanent Page Token
+LONG_LIVED_USER_TOKEN = os.getenv("LONG_LIVED_USER_TOKEN")  # user token
 PAGE_ID = os.getenv("PAGE_ID")
 INSTAGRAM_APP_ID = os.getenv("INSTAGRAM_APP_ID")
 INSTAGRAM_APP_SECRET = os.getenv("INSTAGRAM_APP_SECRET")
+GRAPH_API_VERSION = "v19.0"
 
 # ======== Logging ========
 logging.basicConfig(
@@ -73,31 +74,76 @@ def add_love_to_image(image_path):
     img.save(new_path)
     return new_path
 
-# ======== Instagram Functions ========
+# ======== Facebook/Instagram API Helpers ========
+def refresh_long_lived_token(user_token):
+    """Forny long-lived user token"""
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/oauth/access_token"
+    params = {
+        "grant_type": "fb_exchange_token",
+        "client_id": INSTAGRAM_APP_ID,
+        "client_secret": INSTAGRAM_APP_SECRET,
+        "fb_exchange_token": user_token,
+    }
+    r = requests.get(url, params=params)
+    r.raise_for_status()
+    data = r.json()
+    new_token = data["access_token"]
+
+    # valgfritt: lagre i fil
+    with open("refreshed_token.txt", "w") as f:
+        f.write(new_token)
+
+    logging.info("🔄 Refreshed long-lived user token")
+    return new_token
+
+def get_page_access_token(user_token, page_id):
+    """Hent Page Access Token fra User Token"""
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/me/accounts"
+    params = {"access_token": user_token}
+    r = requests.get(url, params=params)
+
+    if r.status_code == 400 and "expired" in r.text.lower():
+        logging.warning("⚠️ Long-lived token er utløpt – prøver å fornye...")
+        user_token = refresh_long_lived_token(user_token)
+        params["access_token"] = user_token
+        r = requests.get(url, params=params)
+
+    r.raise_for_status()
+    pages = r.json().get("data", [])
+    for p in pages:
+        if p["id"] == page_id:
+            return p["access_token"]
+    raise Exception(f"Fant ikke Page Token for {page_id}")
+
 def get_instagram_user_id(page_token, page_id):
-    url = f"https://graph.facebook.com/v18.0/{page_id}"
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{page_id}"
     params = {"fields": "instagram_business_account", "access_token": page_token}
     r = requests.get(url, params=params)
     r.raise_for_status()
     return r.json()["instagram_business_account"]["id"]
 
 def create_media_container(ig_user_id, page_token, image_url, caption):
-    url = f"https://graph.facebook.com/v18.0/{ig_user_id}/media"
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ig_user_id}/media"
     params = {"image_url": image_url, "caption": caption, "access_token": page_token}
     r = requests.post(url, params=params)
     r.raise_for_status()
     return r.json()["id"]
 
 def publish_media(ig_user_id, container_id, page_token):
-    url = f"https://graph.facebook.com/v18.0/{ig_user_id}/media_publish"
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ig_user_id}/media_publish"
     params = {"creation_id": container_id, "access_token": page_token}
     r = requests.post(url, params=params)
     r.raise_for_status()
     return r.json()
 
-def post_to_instagram(page_token, page_id, image_file, caption):
+def post_to_instagram(user_token, page_id, image_url, caption):
+    # 1. Bytt til page-token
+    page_token = get_page_access_token(user_token, page_id)
+    # 2. Hent Instagram Business ID
     ig_user_id = get_instagram_user_id(page_token, page_id)
-    container_id = create_media_container(ig_user_id, page_token, image_file, caption)
+    # 3. Last opp bilde
+    container_id = create_media_container(ig_user_id, page_token, image_url, caption)
+    # 4. Publiser
     return publish_media(ig_user_id, container_id, page_token)
 
 # ======== Main Flow ========
@@ -109,7 +155,7 @@ if __name__ == "__main__":
         final_img = add_love_to_image(img_file)
 
         instagram_caption = f"{text}\n\n{hashtags}"
-        result = post_to_instagram(LONG_LIVED_USER_TOKEN, PAGE_ID, final_img, instagram_caption)
+        result = post_to_instagram(LONG_LIVED_USER_TOKEN, PAGE_ID, img_url, instagram_caption)
         logging.info(f"🎉 Posted to Instagram: {result}")
         print("✅ Instagram post sent:", result)
 
