@@ -1,35 +1,33 @@
-name: Daily Gro Post
+name: Daily Gro Bot
 
 on:
   schedule:
-    # Kjør daglig kl 08:00 UTC (tilpass tidssone om nødvendig)
-    - cron: '0 8 * * *'
-  workflow_dispatch: # lar deg kjøre manuelt
+    - cron: "0 8 * * *"   # Kjører hver dag kl 08:00 UTC
+  workflow_dispatch:      # Lar deg starte manuelt også
 
 jobs:
-  post_daily:
+  run-gro-bot:
     runs-on: ubuntu-latest
-
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      PAGE_ACCESS_TOKEN: ${{ secrets.PAGE_ACCESS_TOKEN }}
-      PAGE_ID: ${{ secrets.PAGE_ID }}
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install openai pillow requests
+          pip install openai requests pillow
 
-      - name: Run Gro Script
-        run: python gro.py
+      - name: Run Gro Bot
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PAGE_ACCESS_TOKEN: ${{ secrets.PAGE_ACCESS_TOKEN }}
+          PAGE_ID: ${{ secrets.PAGE_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python gro.py
