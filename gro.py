@@ -4,14 +4,13 @@ import requests
 import json
 import datetime
 import logging
-from PIL import Image, ImageDraw, ImageFont
 import random
+from PIL import Image, ImageDraw, ImageFont
 
 # ======== Configuration ========
 openai.api_key = os.getenv("OPENAI_API_KEY")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN").strip()  # Page Access Token
-PAGE_ID = os.getenv("PAGE_ID").strip()
-IG_USER_ID = "17841476888412461"  # Instagram Business ID
+PAGE_ID = os.getenv("PAGE_ID").strip()  # Facebook Page ID
 GRAPH_API_VERSION = "v19.0"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN").strip()
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID").strip()
@@ -55,7 +54,7 @@ def generate_image():
     img_url = img_response.data[0].url
     img_filename = f"reflection_{datetime.date.today()}.png"
 
-    # Last ned bildet lokalt for Telegram
+    # Last ned bildet lokalt
     with open(img_filename, "wb") as f:
         f.write(requests.get(img_url).content)
 
@@ -101,27 +100,32 @@ def send_telegram(message, photo=None):
         print("Telegram exception:", e)
 
 # ======== Instagram ========
-def post_to_instagram(caption, img_url):
+def post_to_instagram(image_url, caption):
     try:
-        # Upload via image_url (krav fra Instagram Graph API)
-        upload_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media"
-        params = {"image_url": img_url, "caption": caption, "access_token": PAGE_ACCESS_TOKEN}
+        # Opprett container
+        upload_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PAGE_ID}/media"
+        params = {
+            "image_url": image_url,
+            "caption": caption,
+            "access_token": PAGE_ACCESS_TOKEN
+        }
         r = requests.post(upload_url, params=params)
         container_id = r.json().get("id")
         if not container_id:
             raise Exception(f"Instagram upload failed: {r.json()}")
 
-        # Publiser med container_id
-        publish_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media_publish"
+        # Publiser container
+        publish_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PAGE_ID}/media_publish"
         params = {"creation_id": container_id, "access_token": PAGE_ACCESS_TOKEN}
         r2 = requests.post(publish_url, params=params)
         if r2.status_code != 200:
             raise Exception(f"Instagram publish failed: {r2.json()}")
-        return r2.json()
+
+        return True
     except Exception as e:
         send_telegram(f"⚠️ Feil under posting til Instagram: {e}")
         logging.error(f"Instagram error: {e}")
-        return None
+        return False
 
 # ======== Main Flow ========
 if __name__ == "__main__":
@@ -138,12 +142,11 @@ if __name__ == "__main__":
         print("✅ Telegram sendt.")
 
         # Post til Instagram
-        insta_result = post_to_instagram(full_caption, img_url)
-        if insta_result:
-            logging.info(f"✅ Instagram post sent: {insta_result}")
-            print("✅ Instagram post sent:", insta_result)
+        if post_to_instagram(img_url, full_caption):
+            logging.info("✅ Instagram post sent")
+            print("✅ Instagram post sent")
         else:
-            print("❌ Instagram post failed.")
+            print("❌ Instagram post failed")
 
     except Exception as e:
         logging.error(f"Error in main: {e}")
