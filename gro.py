@@ -7,16 +7,13 @@ import logging
 from PIL import Image, ImageDraw, ImageFont
 import random
 
-# ======== Configuration ========
+# ======== Konfigurasjon ========
 openai.api_key = os.getenv("OPENAI_API_KEY")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN").strip()
-PAGE_ID = os.getenv("PAGE_ID").strip()
+IG_USER_ID = "17841476888412461"  # Fast Instagram Business ID
 GRAPH_API_VERSION = "v19.0"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN").strip()
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID").strip()
-
-# Hardkodet Instagram Business ID
-IG_USER_ID = "17841476888412461"
 
 # ======== Logging ========
 logging.basicConfig(
@@ -25,7 +22,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# ======== OpenAI Generation ========
+# ======== OpenAI-generering ========
 def generate_text():
     prompt = """
 Write a short, poetic and uplifting reflection (max 2 lines).
@@ -100,9 +97,9 @@ def send_telegram(message, photo=None):
         print("Telegram exception:", e)
 
 # ======== Instagram API ========
-def create_media_container(image_url, caption):
+def create_media_container(img_url, caption):
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media"
-    params = {"image_url": image_url, "caption": caption, "access_token": PAGE_ACCESS_TOKEN}
+    params = {"image_url": img_url, "caption": caption, "access_token": PAGE_ACCESS_TOKEN}
     r = requests.post(url, params=params)
     r.raise_for_status()
     return r.json()["id"]
@@ -114,11 +111,11 @@ def publish_media(container_id):
     r.raise_for_status()
     return r.json()
 
-def post_to_instagram(image_url, caption):
-    container_id = create_media_container(image_url, caption)
+def post_to_instagram(img_url, caption):
+    container_id = create_media_container(img_url, caption)
     return publish_media(container_id)
 
-# ======== Main Flow ========
+# ======== Hovedflyt ========
 if __name__ == "__main__":
     try:
         text = generate_text()
@@ -128,15 +125,15 @@ if __name__ == "__main__":
 
         full_caption = f"🌍 Reflection of the day\n\n{text}\n\n{hashtags}"
 
-        # Send to Telegram first
+        # Send til Telegram
         send_telegram(full_caption, photo=final_img)
-        logging.info("Sent to Telegram.")
-        print("✅ Telegram sent.")
+        logging.info("✅ Telegram sendt.")
+        print("✅ Telegram sendt.")
 
-        # Post to Instagram
+        # Post til Instagram
         insta_result = post_to_instagram(img_url, full_caption)
-        logging.info(f"Posted to Instagram: {insta_result}")
-        print("✅ Instagram post sent:", insta_result)
+        logging.info(f"✅ Instagram postet: {insta_result}")
+        print("✅ Instagram post sendt:", insta_result)
 
     except Exception as e:
         logging.error(f"Error in main: {e}")
