@@ -7,10 +7,11 @@ import logging
 from PIL import Image, ImageDraw, ImageFont
 import random
 
-# ======== Konfigurasjon ========
+# ======== Configuration ========
 openai.api_key = os.getenv("OPENAI_API_KEY")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN").strip()
-IG_USER_ID = "17841476888412461"  # Fast Instagram Business ID
+PAGE_ID = os.getenv("PAGE_ID").strip()
+IG_USER_ID = "17841476888412461"  # Instagram Business ID
 GRAPH_API_VERSION = "v19.0"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN").strip()
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID").strip()
@@ -22,7 +23,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# ======== OpenAI-generering ========
+# ======== OpenAI Generation ========
 def generate_text():
     prompt = """
 Write a short, poetic and uplifting reflection (max 2 lines).
@@ -53,8 +54,11 @@ def generate_image():
     )
     img_url = img_response.data[0].url
     img_filename = f"reflection_{datetime.date.today()}.png"
+
+    # Last ned bildet lokalt
     with open(img_filename, "wb") as f:
         f.write(requests.get(img_url).content)
+
     return img_url, img_filename
 
 def add_love_to_image(image_path):
@@ -96,33 +100,38 @@ def send_telegram(message, photo=None):
         logging.error(f"Telegram exception: {e}")
         print("Telegram exception:", e)
 
-# ======== Instagram API ========
-def create_media_container(img_url, caption):
-    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media"
-    params = {"image_url": img_url, "caption": caption, "access_token": PAGE_ACCESS_TOKEN}
-    r = requests.post(url, params=params)
-    r.raise_for_status()
-    return r.json()["id"]
+# ======== Instagram ========
+def post_to_instagram(image_path, caption):
+    try:
+        # Last opp bildet lokalt
+        with open(image_path, "rb") as f:
+            upload_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media"
+            files = {"file": f}
+            data = {"caption": caption, "access_token": PAGE_ACCESS_TOKEN}
+            r = requests.post(upload_url, files=files, data=data)
+        container_id = r.json().get("id")
+        if not container_id:
+            raise Exception(f"Instagram upload failed: {r.json()}")
 
-def publish_media(container_id):
-    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media_publish"
-    params = {"creation_id": container_id, "access_token": PAGE_ACCESS_TOKEN}
-    r = requests.post(url, params=params)
-    r.raise_for_status()
-    return r.json()
+        # Publiser
+        publish_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media_publish"
+        params = {"creation_id": container_id, "access_token": PAGE_ACCESS_TOKEN}
+        r2 = requests.post(publish_url, params=params)
+        if r2.status_code != 200:
+            raise Exception(f"Instagram publish failed: {r2.json()}")
+        return r2.json()
+    except Exception as e:
+        send_telegram(f"⚠️ Feil under posting til Instagram: {e}")
+        logging.error(f"Instagram error: {e}")
+        return None
 
-def post_to_instagram(img_url, caption):
-    container_id = create_media_container(img_url, caption)
-    return publish_media(container_id)
-
-# ======== Hovedflyt ========
+# ======== Main Flow ========
 if __name__ == "__main__":
     try:
         text = generate_text()
         hashtags = generate_hashtags()
         img_url, img_file = generate_image()
         final_img = add_love_to_image(img_file)
-
         full_caption = f"🌍 Reflection of the day\n\n{text}\n\n{hashtags}"
 
         # Send til Telegram
@@ -131,9 +140,12 @@ if __name__ == "__main__":
         print("✅ Telegram sendt.")
 
         # Post til Instagram
-        insta_result = post_to_instagram(img_url, full_caption)
-        logging.info(f"✅ Instagram postet: {insta_result}")
-        print("✅ Instagram post sendt:", insta_result)
+        insta_result = post_to_instagram(final_img, full_caption)
+        if insta_result:
+            logging.info(f"✅ Instagram post sent: {insta_result}")
+            print("✅ Instagram post sent:", insta_result)
+        else:
+            print("❌ Instagram post failed.")
 
     except Exception as e:
         logging.error(f"Error in main: {e}")
