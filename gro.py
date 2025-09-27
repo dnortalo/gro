@@ -8,13 +8,13 @@ from PIL import Image, ImageDraw, ImageFont
 import random
 
 # ======== Configuration ========
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-LONG_LIVED_USER_TOKEN = os.getenv("LONG_LIVED_USER_TOKEN")  # user token
-PAGE_ID = os.getenv("PAGE_ID")
-INSTAGRAM_APP_ID = os.getenv("INSTAGRAM_APP_ID")
-INSTAGRAM_APP_SECRET = os.getenv("INSTAGRAM_APP_SECRET")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY").strip()
+LONG_LIVED_USER_TOKEN = os.getenv("LONG_LIVED_USER_TOKEN").strip()  # user token
+PAGE_ID = os.getenv("PAGE_ID").strip()
+INSTAGRAM_APP_ID = os.getenv("INSTAGRAM_APP_ID").strip()
+INSTAGRAM_APP_SECRET = os.getenv("INSTAGRAM_APP_SECRET").strip()
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN").strip()
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID").strip()
 GRAPH_API_VERSION = "v19.0"
 
 # ======== Logging ========
@@ -89,20 +89,18 @@ def send_telegram_message(bot_token, chat_id, message_text):
 
 # ======== Facebook/Instagram API Helpers ========
 def refresh_long_lived_token(user_token):
-    """Forny long-lived user token"""
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/oauth/access_token"
     params = {
         "grant_type": "fb_exchange_token",
         "client_id": INSTAGRAM_APP_ID,
         "client_secret": INSTAGRAM_APP_SECRET,
-        "fb_exchange_token": user_token,
+        "fb_exchange_token": user_token.strip(),
     }
     r = requests.get(url, params=params)
     r.raise_for_status()
-    data = r.json()
-    new_token = data["access_token"]
+    new_token = r.json()["access_token"]
 
-    # valgfritt: lagre i fil
+    # Optional: save token to file
     with open("refreshed_token.txt", "w") as f:
         f.write(new_token)
 
@@ -110,13 +108,12 @@ def refresh_long_lived_token(user_token):
     return new_token
 
 def get_page_access_token(user_token, page_id):
-    """Hent Page Access Token fra User Token"""
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/me/accounts"
-    params = {"access_token": user_token}
+    params = {"access_token": user_token.strip()}
     r = requests.get(url, params=params)
 
     if r.status_code == 400 and "expired" in r.text.lower():
-        logging.warning("⚠️ Long-lived token er utløpt – prøver å fornye...")
+        logging.warning("⚠️ Long-lived token expired – refreshing...")
         user_token = refresh_long_lived_token(user_token)
         params["access_token"] = user_token
         r = requests.get(url, params=params)
@@ -126,25 +123,25 @@ def get_page_access_token(user_token, page_id):
     for p in pages:
         if p["id"] == page_id:
             return p["access_token"]
-    raise Exception(f"Fant ikke Page Token for {page_id}")
+    raise Exception(f"Page token not found for {page_id}")
 
 def get_instagram_user_id(page_token, page_id):
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{page_id}"
-    params = {"fields": "instagram_business_account", "access_token": page_token}
+    params = {"fields": "instagram_business_account", "access_token": page_token.strip()}
     r = requests.get(url, params=params)
     r.raise_for_status()
     return r.json()["instagram_business_account"]["id"]
 
 def create_media_container(ig_user_id, page_token, image_url, caption):
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ig_user_id}/media"
-    params = {"image_url": image_url, "caption": caption, "access_token": page_token}
+    params = {"image_url": image_url, "caption": caption, "access_token": page_token.strip()}
     r = requests.post(url, params=params)
     r.raise_for_status()
     return r.json()["id"]
 
 def publish_media(ig_user_id, container_id, page_token):
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ig_user_id}/media_publish"
-    params = {"creation_id": container_id, "access_token": page_token}
+    params = {"creation_id": container_id, "access_token": page_token.strip()}
     r = requests.post(url, params=params)
     r.raise_for_status()
     return r.json()
@@ -165,7 +162,7 @@ if __name__ == "__main__":
 
         instagram_caption = f"{text}\n\n{hashtags}"
 
-        # --- Send message to Telegram først ---
+        # --- Send message to Telegram first ---
         telegram_message = f"✨ Klar til Instagram-post:\n\n{text}\n\n{hashtags}"
         send_result = send_telegram_message(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, telegram_message)
         logging.info(f"📨 Sent Telegram message: {send_result}")
