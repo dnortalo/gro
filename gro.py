@@ -9,7 +9,7 @@ import random
 
 # ======== Configuration ========
 openai.api_key = os.getenv("OPENAI_API_KEY")
-PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN").strip()
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN").strip()  # Page Access Token
 PAGE_ID = os.getenv("PAGE_ID").strip()
 IG_USER_ID = "17841476888412461"  # Instagram Business ID
 GRAPH_API_VERSION = "v19.0"
@@ -55,7 +55,7 @@ def generate_image():
     img_url = img_response.data[0].url
     img_filename = f"reflection_{datetime.date.today()}.png"
 
-    # Last ned bildet lokalt
+    # Last ned bildet lokalt for Telegram
     with open(img_filename, "wb") as f:
         f.write(requests.get(img_url).content)
 
@@ -101,19 +101,17 @@ def send_telegram(message, photo=None):
         print("Telegram exception:", e)
 
 # ======== Instagram ========
-def post_to_instagram(image_path, caption):
+def post_to_instagram(caption, img_url):
     try:
-        # Last opp bildet lokalt
-        with open(image_path, "rb") as f:
-            upload_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media"
-            files = {"file": f}
-            data = {"caption": caption, "access_token": PAGE_ACCESS_TOKEN}
-            r = requests.post(upload_url, files=files, data=data)
+        # Upload via image_url (krav fra Instagram Graph API)
+        upload_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media"
+        params = {"image_url": img_url, "caption": caption, "access_token": PAGE_ACCESS_TOKEN}
+        r = requests.post(upload_url, params=params)
         container_id = r.json().get("id")
         if not container_id:
             raise Exception(f"Instagram upload failed: {r.json()}")
 
-        # Publiser
+        # Publiser med container_id
         publish_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media_publish"
         params = {"creation_id": container_id, "access_token": PAGE_ACCESS_TOKEN}
         r2 = requests.post(publish_url, params=params)
@@ -140,7 +138,7 @@ if __name__ == "__main__":
         print("✅ Telegram sendt.")
 
         # Post til Instagram
-        insta_result = post_to_instagram(final_img, full_caption)
+        insta_result = post_to_instagram(full_caption, img_url)
         if insta_result:
             logging.info(f"✅ Instagram post sent: {insta_result}")
             print("✅ Instagram post sent:", insta_result)
