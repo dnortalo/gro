@@ -4,7 +4,7 @@ on:
   schedule:
     # Kjører hver dag kl. 10:00 UTC (12:00 norsk tid)
     - cron: '0 10 * * *'
-  workflow_dispatch:  # lar deg kjøre manuelt
+  workflow_dispatch:  # Lar deg kjøre manuelt
 
 jobs:
   post_bot:
@@ -19,11 +19,10 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Installer dependencies
+      - name: Installer dependencies direkte
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pillow requests openai
+          pip install openai requests pillow
 
       - name: Kjør bot
         env:
