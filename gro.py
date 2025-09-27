@@ -13,6 +13,8 @@ LONG_LIVED_USER_TOKEN = os.getenv("LONG_LIVED_USER_TOKEN")  # user token
 PAGE_ID = os.getenv("PAGE_ID")
 INSTAGRAM_APP_ID = os.getenv("INSTAGRAM_APP_ID")
 INSTAGRAM_APP_SECRET = os.getenv("INSTAGRAM_APP_SECRET")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 GRAPH_API_VERSION = "v19.0"
 
 # ======== Logging ========
@@ -73,6 +75,17 @@ def add_love_to_image(image_path):
     new_path = image_path.replace(".png", "_with_love.png")
     img.save(new_path)
     return new_path
+
+# ======== Telegram Function ========
+def send_telegram_message(bot_token, chat_id, message_text):
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message_text
+    }
+    r = requests.post(url, json=payload)
+    r.raise_for_status()
+    return r.json()
 
 # ======== Facebook/Instagram API Helpers ========
 def refresh_long_lived_token(user_token):
@@ -137,13 +150,9 @@ def publish_media(ig_user_id, container_id, page_token):
     return r.json()
 
 def post_to_instagram(user_token, page_id, image_url, caption):
-    # 1. Bytt til page-token
     page_token = get_page_access_token(user_token, page_id)
-    # 2. Hent Instagram Business ID
     ig_user_id = get_instagram_user_id(page_token, page_id)
-    # 3. Last opp bilde
     container_id = create_media_container(ig_user_id, page_token, image_url, caption)
-    # 4. Publiser
     return publish_media(ig_user_id, container_id, page_token)
 
 # ======== Main Flow ========
@@ -155,9 +164,17 @@ if __name__ == "__main__":
         final_img = add_love_to_image(img_file)
 
         instagram_caption = f"{text}\n\n{hashtags}"
-        result = post_to_instagram(LONG_LIVED_USER_TOKEN, PAGE_ID, img_url, instagram_caption)
-        logging.info(f"🎉 Posted to Instagram: {result}")
-        print("✅ Instagram post sent:", result)
+
+        # --- Send message to Telegram først ---
+        telegram_message = f"✨ Klar til Instagram-post:\n\n{text}\n\n{hashtags}"
+        send_result = send_telegram_message(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, telegram_message)
+        logging.info(f"📨 Sent Telegram message: {send_result}")
+        print("✅ Telegram message sent:", send_result)
+
+        # --- Post to Instagram ---
+        insta_result = post_to_instagram(LONG_LIVED_USER_TOKEN, PAGE_ID, img_url, instagram_caption)
+        logging.info(f"🎉 Posted to Instagram: {insta_result}")
+        print("✅ Instagram post sent:", insta_result)
 
     except Exception as e:
         logging.error(f"Error in main flow: {e}")
