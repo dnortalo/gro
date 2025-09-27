@@ -9,11 +9,14 @@ import random
 
 # ======== Configuration ========
 openai.api_key = os.getenv("OPENAI_API_KEY")
-PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN").strip()  # Page Access Token
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN").strip()
 PAGE_ID = os.getenv("PAGE_ID").strip()
 GRAPH_API_VERSION = "v19.0"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN").strip()
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID").strip()
+
+# Hardkodet Instagram Business ID
+IG_USER_ID = "17841476888412461"
 
 # ======== Logging ========
 logging.basicConfig(
@@ -97,31 +100,23 @@ def send_telegram(message, photo=None):
         print("Telegram exception:", e)
 
 # ======== Instagram API ========
-def get_instagram_user_id():
-    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PAGE_ID}"
-    params = {"fields": "instagram_business_account", "access_token": PAGE_ACCESS_TOKEN}
-    r = requests.get(url, params=params)
-    r.raise_for_status()
-    return r.json()["instagram_business_account"]["id"]
-
-def create_media_container(ig_user_id, image_url, caption):
-    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ig_user_id}/media"
+def create_media_container(image_url, caption):
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media"
     params = {"image_url": image_url, "caption": caption, "access_token": PAGE_ACCESS_TOKEN}
     r = requests.post(url, params=params)
     r.raise_for_status()
     return r.json()["id"]
 
-def publish_media(ig_user_id, container_id):
-    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ig_user_id}/media_publish"
+def publish_media(container_id):
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media_publish"
     params = {"creation_id": container_id, "access_token": PAGE_ACCESS_TOKEN}
     r = requests.post(url, params=params)
     r.raise_for_status()
     return r.json()
 
 def post_to_instagram(image_url, caption):
-    ig_user_id = get_instagram_user_id()
-    container_id = create_media_container(ig_user_id, image_url, caption)
-    return publish_media(ig_user_id, container_id)
+    container_id = create_media_container(image_url, caption)
+    return publish_media(container_id)
 
 # ======== Main Flow ========
 if __name__ == "__main__":
