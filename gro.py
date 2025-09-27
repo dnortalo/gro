@@ -4,13 +4,13 @@ import requests
 import json
 import datetime
 import logging
-import random
 from PIL import Image, ImageDraw, ImageFont
+import random
 
 # ======== Configuration ========
 openai.api_key = os.getenv("OPENAI_API_KEY")
-PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN").strip()  # Page Access Token
-PAGE_ID = os.getenv("PAGE_ID").strip()  # Facebook Page ID
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN").strip()
+IG_USER_ID = "17841476888412461"  # Instagram Business ID
 GRAPH_API_VERSION = "v19.0"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN").strip()
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID").strip()
@@ -53,11 +53,8 @@ def generate_image():
     )
     img_url = img_response.data[0].url
     img_filename = f"reflection_{datetime.date.today()}.png"
-
-    # Last ned bildet lokalt
     with open(img_filename, "wb") as f:
         f.write(requests.get(img_url).content)
-
     return img_url, img_filename
 
 def add_love_to_image(image_path):
@@ -102,8 +99,8 @@ def send_telegram(message, photo=None):
 # ======== Instagram ========
 def post_to_instagram(image_url, caption):
     try:
-        # Opprett container
-        upload_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PAGE_ID}/media"
+        # 1️⃣ Opprett media container
+        upload_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media"
         params = {
             "image_url": image_url,
             "caption": caption,
@@ -114,8 +111,8 @@ def post_to_instagram(image_url, caption):
         if not container_id:
             raise Exception(f"Instagram upload failed: {r.json()}")
 
-        # Publiser container
-        publish_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{PAGE_ID}/media_publish"
+        # 2️⃣ Publiser media
+        publish_url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{IG_USER_ID}/media_publish"
         params = {"creation_id": container_id, "access_token": PAGE_ACCESS_TOKEN}
         r2 = requests.post(publish_url, params=params)
         if r2.status_code != 200:
@@ -143,10 +140,10 @@ if __name__ == "__main__":
 
         # Post til Instagram
         if post_to_instagram(img_url, full_caption):
-            logging.info("✅ Instagram post sent")
-            print("✅ Instagram post sent")
+            logging.info("✅ Instagram post sent.")
+            print("✅ Instagram post sent.")
         else:
-            print("❌ Instagram post failed")
+            print("❌ Instagram post failed.")
 
     except Exception as e:
         logging.error(f"Error in main: {e}")
