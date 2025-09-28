@@ -18,9 +18,6 @@ GRAPH_API_VERSION = "v19.0"
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# --- Hashtags ---
-base_hashtags = ["#Love", "#Hope", "#Peace", "#Kindness", "#Inspiration", "#Courage"]
-
 STATS_FILE = "stats.json"
 
 # --- Hjelpefunksjoner ---
@@ -50,32 +47,40 @@ def send_telegram(message, photo=None):
     except Exception as e:
         logging.error(f"Feil ved sending til Telegram: {e}")
 
-# --- Generering ---
+# --- Generering av tekst og hashtags ---
 def generate_text():
     prompt = """
-Write a short, poetic, uplifting reflection (max 2 lines).
+Write a short, poetic and uplifting reflection (max 2 lines).
 It should feel timeless and universal, offering hope and courage.
 Use clear, simple words — something anyone can understand.
-Do not mention religion directly; let values of love, care, and light shine through.
+It must not mention religion directly, but let values of love, care and light shine through.
 Return only the reflection text.
 """
     response = openai.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[{"role":"user","content":prompt}]
+        messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content.strip()
 
 def generate_hashtags():
-    return random.sample(base_hashtags, 5)
+    possible_tags = ["#Love", "#Hope", "#Peace", "#Kindness", "#Inspiration", "#Courage"]
+    return " ".join(random.sample(possible_tags, k=random.randint(4,6)))
 
 def generate_image():
-    prompt = "A symbolic, poetic image representing hope, love and human connection. Cinematic, soft natural light, uplifting atmosphere."
-    resp = openai.images.generate(model="dall-e-3", prompt=prompt, size="1024x1024")
-    img_url = resp.data[0].url
-    img_file = f"reflection_{datetime.date.today()}.png"
-    with open(img_file, "wb") as f:
+    img_prompt = (
+        "A symbolic, poetic image representing hope, love and human connection. "
+        "Cinematic style, soft natural light, artistic and uplifting atmosphere."
+    )
+    img_response = openai.images.generate(
+        model="dall-e-3",
+        prompt=img_prompt,
+        size="1024x1024"
+    )
+    img_url = img_response.data[0].url
+    img_filename = f"reflection_{datetime.date.today()}.png"
+    with open(img_filename, "wb") as f:
         f.write(requests.get(img_url).content)
-    return img_url, img_file
+    return img_url, img_filename
 
 def post_to_instagram(caption, img_url):
     try:
@@ -104,14 +109,22 @@ if __name__ == "__main__":
     hashtags = generate_hashtags()
     img_url, img_file = generate_image()
 
-    # Telegram
-    caption = f"💙 Reflection of the Day 💙\n\n{text}\n\n{' '.join(hashtags)}"
+    # Formatert caption med 💙 og ✨
+    caption = (
+        f"💙 Reflection of the Day 💙\n"
+        f"✨️✨️✨️✨️✨️✨️✨️✨️✨️✨️✨️✨️\n"
+        f"{text}\n"
+        f"✨️✨️✨️✨️✨️✨️✨️✨️✨️✨️✨️✨️\n"
+        f"{hashtags}"
+    )
+
+    # Send til Telegram
     send_telegram(caption, photo=img_file)
 
-    # Instagram
+    # Send til Instagram
     if post_to_instagram(caption, img_url):
         logging.info("✅ Instagram postet")
-        stats["daily"].append({"date": str(datetime.date.today()), "hashtags": hashtags})
+        stats["daily"].append({"date": str(datetime.date.today()), "text": text, "hashtags": hashtags})
         save_stats(stats)
     else:
         logging.warning("❌ Instagram post feilet")
