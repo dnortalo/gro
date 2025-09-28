@@ -1,33 +1,33 @@
-name: Daily Instagram & Telegram Post
+name: Daily Reflection Post
 
 on:
   schedule:
-    - cron: '0 8 * * *' # Kjør hver dag kl 08:00 UTC
-  workflow_dispatch: # Lar deg kjøre manuelt fra Actions
+    - cron: '0 8 * * *'  # Kjør hver dag kl 08:00 UTC
+  workflow_dispatch:      # Gir mulighet for manuell kjøring
 
 jobs:
-  post:
+  post-reflection:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install openai requests pillow
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai requests pillow
 
-    - name: Run gro.py
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        LONG_LIVED_USER_TOKEN: ${{ secrets.LONG_LIVED_USER_TOKEN }}
-        IG_USER_ID: ${{ secrets.IG_USER_ID }}
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      run: python gro.py
+      - name: Run gro.py
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LONG_LIVED_USER_TOKEN: ${{ secrets.LONG_LIVED_USER_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python gro.py
