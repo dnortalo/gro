@@ -2,8 +2,8 @@ name: Daily Reflection Post
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # Kjør hver dag kl 08:00 UTC
-  workflow_dispatch:      # Gir mulighet for manuell kjøring
+    - cron: '0 8 * * *'  # Kjører hver dag kl 08:00 UTC
+  workflow_dispatch:    # Gir mulighet for manuell kjøring
 
 jobs:
   post-reflection:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
