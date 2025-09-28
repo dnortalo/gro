@@ -2,23 +2,38 @@ import os
 import openai
 import requests
 import json
+import random
 import datetime
 import logging
-import random
-from PIL import Image, ImageDraw, ImageFont
 
 # --- Konfigurasjon ---
 openai.api_key = os.getenv("OPENAI_API_KEY")
 ACCESS_TOKEN = os.getenv("LONG_LIVED_USER_TOKEN")  # Token med instagram_content_publish
-IG_USER_ID = os.getenv("IG_USER_ID")               # Instagram Business/Creator ID
+IG_USER_ID = os.getenv("IG_USER_ID")               # Riktig Instagram Business/Creator ID
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
 GRAPH_API_VERSION = "v19.0"
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+# --- Hashtags ---
+base_hashtags = ["#Love", "#Hope", "#Peace", "#Kindness", "#Inspiration", "#Courage"]
+
+STATS_FILE = "stats.json"
+
 # --- Hjelpefunksjoner ---
+def load_stats():
+    if os.path.exists(STATS_FILE):
+        with open(STATS_FILE, "r") as f:
+            return json.load(f)
+    return {"daily": []}
+
+def save_stats(stats):
+    with open(STATS_FILE, "w") as f:
+        json.dump(stats, f, indent=2)
+
 def send_telegram(message, photo=None):
     try:
         if photo:
@@ -35,30 +50,28 @@ def send_telegram(message, photo=None):
     except Exception as e:
         logging.error(f"Feil ved sending til Telegram: {e}")
 
-# --- Generering av refleksjon ---
-def generate_reflection():
-    prompt = (
-        "Write a short, poetic and uplifting reflection (max 2 lines) for a daily post. "
-        "It should be timeless, universal, and offer hope and courage. "
-        "Use simple, clear language. Do not mention religion directly."
-    )
-    resp = openai.chat.completions.create(
+# --- Generering ---
+def generate_text():
+    prompt = """
+Write a short, poetic, uplifting reflection (max 2 lines).
+It should feel timeless and universal, offering hope and courage.
+Use clear, simple words — something anyone can understand.
+Do not mention religion directly; let values of love, care, and light shine through.
+Return only the reflection text.
+"""
+    response = openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role":"user","content":prompt}]
     )
-    return resp.choices[0].message.content.strip()
+    return response.choices[0].message.content.strip()
 
 def generate_hashtags():
-    possible_tags = ["#Love", "#Hope", "#Peace", "#Kindness", "#Inspiration", "#Courage"]
-    return " ".join(random.sample(possible_tags, k=random.randint(4,6)))
+    return random.sample(base_hashtags, 5)
 
-def generate_image(reflection_text):
-    img_prompt = (
-        "A symbolic, poetic image representing hope, love and human connection. "
-        "Soft natural light, artistic, cinematic style, uplifting."
-    )
-    img_response = openai.images.generate(model="dall-e-3", prompt=img_prompt, size="1024x1024")
-    img_url = img_response.data[0].url
+def generate_image():
+    prompt = "A symbolic, poetic image representing hope, love and human connection. Cinematic, soft natural light, uplifting atmosphere."
+    resp = openai.images.generate(model="dall-e-3", prompt=prompt, size="1024x1024")
+    img_url = resp.data[0].url
     img_file = f"reflection_{datetime.date.today()}.png"
     with open(img_file, "wb") as f:
         f.write(requests.get(img_url).content)
@@ -86,16 +99,19 @@ def post_to_instagram(caption, img_url):
 
 # --- Main ---
 if __name__ == "__main__":
-    reflection = generate_reflection()
+    stats = load_stats()
+    text = generate_text()
     hashtags = generate_hashtags()
-    full_caption = f"🌍 Reflection of the day\n\n{reflection}\n\n{hashtags}"
-    img_url, img_file = generate_image(reflection)
+    img_url, img_file = generate_image()
 
     # Telegram
-    send_telegram(full_caption, photo=img_file)
+    caption = f"💙 Reflection of the Day 💙\n\n{text}\n\n{' '.join(hashtags)}"
+    send_telegram(caption, photo=img_file)
 
     # Instagram
-    if post_to_instagram(full_caption, img_url):
+    if post_to_instagram(caption, img_url):
         logging.info("✅ Instagram postet")
+        stats["daily"].append({"date": str(datetime.date.today()), "hashtags": hashtags})
+        save_stats(stats)
     else:
         logging.warning("❌ Instagram post feilet")
